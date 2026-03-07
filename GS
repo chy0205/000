@@ -296,20 +296,48 @@ function getBonusStats() {
     .filter(s => s.getName().indexOf('加分_') === 0)
     .sort((a, b) => b.getName().localeCompare(a.getName()));
     
-  if (bonusSheets.length === 0) return { success: true, data: {}, sheetName: "" };
+  const groups = ["第一組", "第二組", "第三組", "第四組", "第五組", "第六組", "第七組"];
+  const latestStats = {};
+  const totalStats = {};
   
-  const sheet = bonusSheets[0];
-  const data = sheet.getDataRange().getValues();
-  const stats = {};
-  
-  if (data.length > 1) {
-    data.slice(1).forEach(row => {
-      const group = row[1];
+  // 初始化數據
+  groups.forEach(g => {
+    latestStats[g] = 0;
+    totalStats[g] = 0;
+  });
+
+  if (bonusSheets.length === 0) return { success: true, latest: latestStats, total: totalStats, sheetName: "" };
+
+  // 1. 最新分頁數據
+  const latestSheet = bonusSheets[0];
+  const latestData = latestSheet.getDataRange().getValues();
+  if (latestData.length > 1) {
+    latestData.slice(1).forEach(row => {
+      const group = row[1] ? row[1].toString().trim() : "";
       const pts = parseFloat(row[3]) || 0;
-      if (group) stats[group] = (stats[group] || 0) + pts;
+      if (groups.indexOf(group) !== -1) latestStats[group] += pts;
     });
   }
-  return { success: true, data: stats, sheetName: sheet.getName() };
+
+  // 2. 總累積數據 (掃描所有加分表)
+  bonusSheets.forEach(s => {
+    const d = s.getDataRange().getValues();
+    if (d.length > 1) {
+      d.slice(1).forEach(row => {
+        const group = row[1] ? row[1].toString().trim() : "";
+        const pts = parseFloat(row[3]) || 0;
+        if (groups.indexOf(group) !== -1) totalStats[group] += pts;
+      });
+    }
+  });
+
+  return { 
+    success: true, 
+    latest: latestStats, 
+    total: totalStats, 
+    sheetName: latestSheet.getName(),
+    labels: groups
+  };
 }
 
 // ==========================================
