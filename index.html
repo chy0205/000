@@ -2336,37 +2336,44 @@
         function renderQuiz() {
             const content = document.getElementById('quiz-content'); if (!content) return;
             let h = `<div class="bg-emerald-50 p-4 rounded-2xl mb-6 text-emerald-800 text-xs font-black text-center border">正式測驗中</div>`;
-            quizData.forEach((q, i) => {
-                const qId = `q${i + 1}`;
-                let imgHtml = (q.photo && (q.photo.includes('http') || (q.photo.length > 20 && !q.photo.includes(' ')))) ? `<img src="${convertToDirectLink(q.photo)}" class="quiz-image" onerror="this.style.display='none'">` : "";
 
-                // Normalizing type
-                const qType = (q.type || 'single').toLowerCase();
-                const isFill = q.isBonus || qType === 'fill' || qType === 'text' || qType === '填充' || qType === '填空';
-                const isSingle = qType === 'single' || qType === 'radio' || qType === '單選' || qType === '單選題';
+            if (!quizData || quizData.length === 0) {
+                h += `<div class="p-20 text-center text-slate-400 font-bold italic bg-white rounded-3xl border">目前無題目資料，請聯繫管理員確認或稍後再試。</div>`;
+            } else {
+                quizData.forEach((q, i) => {
+                    const qId = `q${i + 1}`;
+                    const photo = (q.photo || "").toString();
+                    let imgHtml = (photo && (photo.includes('http') || (photo.length > 20 && !photo.includes(' ')))) ? `<img src="${convertToDirectLink(photo)}" class="quiz-image" onerror="this.style.display='none'">` : "";
 
-                let opts = "";
-                if (isFill) {
-                    opts = `<input type="text" class="w-full p-4 bg-slate-50 border rounded-2xl" id="${qId}-input" placeholder="在此輸入回答...">`;
-                } else {
-                    // Shuffling options
-                    let shuffledOptions = [...(q.options || [])].sort(() => Math.random() - 0.5);
-                    opts = shuffledOptions.map(o => `
-                        <label class="border p-4 rounded-2xl flex items-center mb-2 cursor-pointer hover:bg-slate-50 transition-colors">
-                            <input type="${isSingle ? 'radio' : 'checkbox'}" name="${qId}" value="${o}" class="mr-4 w-6 h-6">
-                            <span class="font-bold text-slate-700">${o}</span>
-                        </label>
-                    `).join('');
-                }
+                    // Normalizing type
+                    const qType = (q.type || 'single').toString().toLowerCase();
+                    const isFill = q.isBonus === true || qType === 'fill' || qType === 'text' || qType === '填充' || qType === '填空';
+                    const isSingle = qType === 'single' || qType === 'radio' || qType === '單選' || qType === '單選題';
 
-                h += `
-                <div class="${q.isBonus ? 'bonus-card' : 'question-card'} p-6 rounded-3xl shadow-sm mb-6 bg-white border">
-                    <div class="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Q${i + 1}</div>
-                    <h3 class="font-black text-lg mb-2 text-slate-800">${q.question}</h3>
-                    ${imgHtml}
-                    <div class="mt-4">${opts}</div>
-                </div>`;
-            });
+                    let opts = "";
+                    if (isFill) {
+                        opts = `<input type="text" class="w-full p-4 bg-slate-50 border rounded-2xl" id="${qId}-input" placeholder="在此輸入回答...">`;
+                    } else {
+                        // Shuffling options
+                        const optionsList = Array.isArray(q.options) ? q.options : [];
+                        let shuffledOptions = [...optionsList].sort(() => Math.random() - 0.5);
+                        opts = shuffledOptions.map(o => `
+                            <label class="border p-4 rounded-2xl flex items-center mb-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                                <input type="${isSingle ? 'radio' : 'checkbox'}" name="${qId}" value="${o}" class="mr-4 w-6 h-6">
+                                <span class="font-bold text-slate-700">${o}</span>
+                            </label>
+                        `).join('');
+                    }
+
+                    h += `
+                    <div class="${q.isBonus ? 'bonus-card' : 'question-card'} p-6 rounded-3xl shadow-sm mb-6 bg-white border">
+                        <div class="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Q${i + 1}</div>
+                        <h3 class="font-black text-lg mb-2 text-slate-800">${q.question}</h3>
+                        ${imgHtml}
+                        <div class="mt-4">${opts}</div>
+                    </div>`;
+                });
+            }
             h += `<button onclick="handleQuizSubmit()" id="quiz-final-btn" class="w-full py-5 btn-primary rounded-3xl font-black text-xl shadow-2xl mt-10">提交考卷</button>`;
             content.innerHTML = h; window.scrollTo(0, 0);
         }
@@ -2391,28 +2398,38 @@
 
         async function fetchSingleSheet(gid) {
             try {
-                const res = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`), text = await res.text(), data = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/)[1]);
+                const res = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`), text = await res.text(), match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
+                if (!match) return [];
+                const data = JSON.parse(match[1]);
+                if (!data.table || !data.table.rows) return [];
+
                 return data.table.rows.map(r => {
-                    if (!r || !r.c || (!r.c[0]?.v && !r.c[1]?.v)) return null;
+                    try {
+                        if (!r || !r.c) return null;
+                        const cells = r.c.map(cell => cell ? (cell.v !== undefined && cell.v !== null ? cell.v : "") : "");
+                        if (cells.length < 1) return null;
 
-                    // 智慧欄位偵測：如果有題號欄位 (數字或帶有 "Q")，整體後移
-                    const cell0 = r.c[0]?.v;
-                    const cell1 = r.c[1]?.v;
-                    const offset = (typeof cell0 === 'number' || (typeof cell0 === 'string' && /^[Qq]\d+/.test(cell0))) && cell1 ? 1 : 0;
+                        // 智慧欄位偵測：如果有題號欄位 (數字或帶有 "Q")，整體後移
+                        const cell0 = cells[0];
+                        const cell1 = cells[1];
+                        const offset = ((typeof cell0 === 'number') || (typeof cell0 === 'string' && /^[Qq\d\.]+/.test(cell0.toString()))) && cell1 ? 1 : 0;
 
-                    const typeRaw = (r.c[offset + 1]?.v || 'single').toString().toLowerCase().trim();
-                    const optsRaw = r.c[offset + 2]?.v ? r.c[offset + 2].v.toString() : "";
+                        const qText = (cells[offset + 0] || "").toString().trim();
+                        if (!qText || qText === "題目") return null;
 
-                    return {
-                        question: r.c[offset + 0]?.v,
-                        type: typeRaw,
-                        // 支援更豐富的分割符：全、半形逗號、換行、分號
-                        options: optsRaw ? optsRaw.split(/[,，\n;]+/).map(s => s.trim()).filter(s => s) : [],
-                        answer: String(r.c[offset + 3]?.v || '').split(/[,，\n;]+/).map(s => s.trim()).filter(s => s),
-                        score: parseFloat(r.c[offset + 4]?.v || 0),
-                        photo: r.c[offset + 5]?.v || '',
-                        isBonus: ['是', 'yes', 'true', 'y', '1'].includes((r.c[offset + 6]?.v || '').toString().toLowerCase().trim())
-                    };
+                        const typeRaw = (cells[offset + 1] || 'single').toString().toLowerCase().trim();
+                        const optsRaw = (cells[offset + 2] || "").toString();
+
+                        return {
+                            question: qText,
+                            type: typeRaw,
+                            options: optsRaw ? optsRaw.split(/[,，\n;]+/).map(s => s.trim()).filter(s => s) : [],
+                            answer: (cells[offset + 3] || "").toString().split(/[,，\n;]+/).map(s => s.trim()).filter(s => s),
+                            score: parseFloat(cells[offset + 4] || 0),
+                            photo: (cells[offset + 5] || "").toString().trim(),
+                            isBonus: ['是', 'yes', 'true', 'y', '1'].includes((cells[offset + 6] || '').toString().toLowerCase().trim())
+                        };
+                    } catch (err) { return null; }
                 }).filter(q => q !== null && q.question);
             } catch (e) { console.error("Fetch Sheet Error:", e); return []; }
         }
