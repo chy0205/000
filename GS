@@ -26,7 +26,7 @@ function doGet(e) {
       case 'getHomeworkConfig': return JSONResponse(getHomeworkConfig());
       case 'getHomeworkReport': return JSONResponse(getHomeworkReport(topic));
       case 'getUserHomeworkHistory': return JSONResponse(getUserHomeworkHistory(group, name));
-      case 'getBonusStats': return JSONResponse(getBonusStats());
+      case 'getBonusStats': return JSONResponse(getBonusStats(e.parameter.sheetName));
       case 'getTeamsData': return JSONResponse(getTeamsData());
       default: throw new Error("未定義的讀取動作: " + action);
     }
@@ -289,7 +289,7 @@ function handleAddBonusPoints(data) {
   return { success: true };
 }
 
-function getBonusStats() {
+function getBonusStats(targetSheetName) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheets = ss.getSheets();
   const bonusSheets = sheets
@@ -297,25 +297,32 @@ function getBonusStats() {
     .sort((a, b) => b.getName().localeCompare(a.getName()));
     
   const groups = ["第一組", "第二組", "第三組", "第四組", "第五組", "第六組", "第七組"];
-  const latestStats = {};
+  const sheetStats = {};
   const totalStats = {};
   
   // 初始化數據
   groups.forEach(g => {
-    latestStats[g] = 0;
+    sheetStats[g] = 0;
     totalStats[g] = 0;
   });
 
-  if (bonusSheets.length === 0) return { success: true, latest: latestStats, total: totalStats, sheetName: "" };
+  const availableSheets = bonusSheets.map(s => s.getName());
 
-  // 1. 最新分頁數據
-  const latestSheet = bonusSheets[0];
-  const latestData = latestSheet.getDataRange().getValues();
-  if (latestData.length > 1) {
-    latestData.slice(1).forEach(row => {
+  if (bonusSheets.length === 0) return { success: true, latest: sheetStats, total: totalStats, sheetName: "", availableSheets: [] };
+
+  // 1. 單表數據 (預設最新，若傳入指定名稱則使用該表)
+  let targetSheet = bonusSheets[0];
+  if (targetSheetName) {
+    const found = bonusSheets.find(s => s.getName() === targetSheetName);
+    if (found) targetSheet = found;
+  }
+  
+  const sheetData = targetSheet.getDataRange().getValues();
+  if (sheetData.length > 1) {
+    sheetData.slice(1).forEach(row => {
       const group = row[1] ? row[1].toString().trim() : "";
       const pts = parseFloat(row[3]) || 0;
-      if (groups.indexOf(group) !== -1) latestStats[group] += pts;
+      if (groups.indexOf(group) !== -1) sheetStats[group] += pts;
     });
   }
 
@@ -333,9 +340,10 @@ function getBonusStats() {
 
   return { 
     success: true, 
-    latest: latestStats, 
+    latest: sheetStats, // 維持 latest 鍵名避免改動太多前端
     total: totalStats, 
-    sheetName: latestSheet.getName(),
+    sheetName: targetSheet.getName(),
+    availableSheets: availableSheets,
     labels: groups
   };
 }
