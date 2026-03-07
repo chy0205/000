@@ -1427,7 +1427,8 @@
                 if (isAdminOrTeacher) {
                     filterContainer.classList.remove('hidden');
                     if (filterSelect.options.length === 0) {
-                        filterSelect.innerHTML = '<option value="ALL">🔍 查看所有組別點名報告</option>';
+                        filterSelect.innerHTML = '<option value="" disabled selected>🔍 請選擇組別查看點名報告</option>';
+                        filterSelect.add(new Option("🌟 查看所有組別 (所有成員)", "ALL"));
                         Object.keys(teamsData).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)).forEach(g => filterSelect.add(new Option(g, g)));
                     }
                     document.getElementById('quiz-config-container').classList.remove('hidden');
@@ -1450,7 +1451,12 @@
         function applyFilters() {
             const list = document.getElementById('attendance-report-list');
             const isLeader = ['Leader', '組長'].some(r => currentUser.role.includes(r));
-            const gVal = isLeader ? currentUser.group : (document.getElementById('admin-group-filter')?.value || 'ALL');
+            const gVal = isLeader ? currentUser.group : (document.getElementById('admin-group-filter')?.value || '');
+
+            if (!gVal) {
+                if (list) list.innerHTML = '<div class="text-center py-10 text-slate-300 font-bold italic">請選擇組別以顯示資料</div>';
+                return;
+            }
 
             let html = '';
             const targetGroups = (gVal === 'ALL' ? Object.keys(teamsData).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)) : [gVal]);
