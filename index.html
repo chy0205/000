@@ -1479,6 +1479,16 @@
 
             targetGroups.forEach(gn => {
                 const members = teamsData[gn] || [];
+
+                // 如果是查看所有組別，加入帶有左側裝飾條的分組標頭
+                if (gVal === 'ALL') {
+                    html += `
+                    <div class="flex items-center justify-between mt-8 mb-4 px-2 border-l-4 border-emerald-500 py-1 bg-slate-50/50 rounded-r-lg">
+                        <span class="font-black text-slate-700 ml-3 text-sm">${gn}</span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">組員共 ${members.length} 人</span>
+                    </div>`;
+                }
+
                 members.sort().forEach(name => {
                     const sign = cachedSignedUsers.slice().reverse().find(s => s.group === gn && s.name === name);
                     let dot = 'dot-missing', tCol = 'text-slate-300', txt = ''; // 預設未簽到不顯示文字
