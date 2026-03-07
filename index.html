@@ -2451,9 +2451,9 @@
                     const ud = document.getElementById('user-display'); ud.classList.remove('hidden'); ud.classList.add('flex');
                     document.getElementById('display-name').innerText = currentUser.name;
                     document.getElementById('display-role').innerText = currentUser.role || '學員';
-                    const r = currentUser.role || '';
-                    if (['Admin', 'Teacher', 'Leader', '組長'].some(x => r.includes(x))) document.getElementById('nav-admin').classList.remove('hidden');
-                    if (['Admin', 'Teacher'].some(x => r.includes(x))) { document.getElementById('nav-questions').classList.remove('hidden'); document.getElementById('add-announcement-btn')?.classList.remove('hidden'); document.getElementById('nav-img-transfer').classList.remove('hidden'); }
+                    const r = (currentUser.role || '').toUpperCase();
+                    if (['ADMIN', 'TEACHER', 'LEADER', '組長'].some(x => r.includes(x.toUpperCase()))) document.getElementById('nav-admin').classList.remove('hidden');
+                    if (['ADMIN', 'TEACHER'].some(x => r.includes(x.toUpperCase()))) { document.getElementById('nav-questions').classList.remove('hidden'); document.getElementById('add-announcement-btn')?.classList.remove('hidden'); document.getElementById('nav-img-transfer').classList.remove('hidden'); }
                     else if (r.includes('發布員')) { document.getElementById('add-announcement-btn')?.classList.remove('hidden'); document.getElementById('nav-img-transfer').classList.remove('hidden'); }
                     switchView('bulletin');
                 } catch (e) { switchView('login'); }
