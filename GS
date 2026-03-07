@@ -215,17 +215,25 @@ function getAttendanceReport(role, userGroup) {
       });
     }
 
-    // 3. 獲取累計加分 (從最新的加分表)
+    // 3. 獲取累計加分 (單表與全期總計)
     const bonusMap = {};
-    const bonusSheet = sheets.filter(s => s.getName().startsWith("加分_")).sort((a,b) => b.getName().localeCompare(a.getName()))[0];
-    if (bonusSheet) {
-      const bRows = bonusSheet.getDataRange().getValues();
+    const totalBonusMap = {};
+    const allBonusSheets = sheets.filter(s => s.getName().startsWith("加分_"));
+    const latestBonusSheet = allBonusSheets.sort((a,b) => b.getName().localeCompare(a.getName()))[0];
+
+    allBonusSheets.forEach(s => {
+      const bRows = s.getDataRange().getValues();
       for(let i=1; i<bRows.length; i++) {
         const bName = bRows[i][2];
         const bPts = parseFloat(bRows[i][3] || 0);
-        if (bName) bonusMap[bName] = (bonusMap[bName] || 0) + bPts;
+        if (bName) {
+           totalBonusMap[bName] = (totalBonusMap[bName] || 0) + bPts;
+           if (s.getName() === latestBonusSheet?.getName()) {
+              bonusMap[bName] = (bonusMap[bName] || 0) + bPts;
+           }
+        }
       }
-    }
+    });
 
     // 4. 整合資料：以所有使用者為基礎
     const result = allUsers.map(user => {
@@ -235,7 +243,8 @@ function getAttendanceReport(role, userGroup) {
         name: user.name,
         time: sign ? sign.time : "",
         note: sign ? sign.note : "",
-        pts: bonusMap[user.name] || 0
+        pts: bonusMap[user.name] || 0,
+        totalPts: totalBonusMap[user.name] || 0
       };
     });
 

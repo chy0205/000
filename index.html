@@ -1519,7 +1519,7 @@
                             <span class="status-dot ${dot}"></span>
                             <div class="flex flex-col">
                                 <span class="font-bold text-slate-700">${name}</span>
-                                ${sign && sign.pts !== undefined ? `<span class="text-[9px] font-black text-amber-500">🏆 累計加分：${sign.pts}</span>` : ''}
+                                ${sign && sign.pts !== undefined ? `<span class="text-[9px] font-black text-amber-500 block">🏆 當表加分：${sign.pts}</span><span class="text-[9px] font-black text-amber-600 block">🌟 全期總共：${sign.totalPts !== undefined ? sign.totalPts : sign.pts}</span>` : ''}
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
