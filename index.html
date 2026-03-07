@@ -157,6 +157,10 @@
             background-color: #3b82f6;
         }
 
+        .dot-missing {
+            background-color: #cbd5e1;
+        }
+
         .hidden-view {
             display: none;
         }
@@ -732,8 +736,11 @@
 
             <div class="mb-4 px-2 flex justify-between items-center">
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">加分管理與統計</h3>
-                <button onclick="createNewBonusSheet()"
-                    class="text-[10px] bg-amber-500 text-white px-3 py-1.5 rounded-full font-black uppercase hover:bg-amber-600 transition-colors">➕
+                <button id="admin-create-bonus-sheet" onclick="createNewBonusSheet()"
+                    class="hidden bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
                     建立新加分頁</button>
             </div>
             <div id="bonus-stats-container" class="mb-10 bg-white p-6 rounded-3xl border shadow-sm">
@@ -1423,6 +1430,7 @@
                 const filterContainer = document.getElementById('admin-group-filter-container');
                 const filterSelect = document.getElementById('admin-group-filter');
                 const homeworkReportSelect = document.getElementById('admin-homework-topic');
+                const createBonusSheetBtn = document.getElementById('admin-create-bonus-sheet');
 
                 if (isAdminOrTeacher) {
                     filterContainer.classList.remove('hidden');
@@ -1430,6 +1438,9 @@
                         filterSelect.innerHTML = '<option value="" disabled selected>🔍 請選擇組別查看點名報告</option>';
                         filterSelect.add(new Option("🌟 查看所有組別 (所有成員)", "ALL"));
                         Object.keys(teamsData).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)).forEach(g => filterSelect.add(new Option(g, g)));
+                    }
+                    if (currentUser.role.includes('Admin') || currentUser.role.includes('管理員')) {
+                        createBonusSheetBtn?.classList.remove('hidden');
                     }
                     document.getElementById('quiz-config-container').classList.remove('hidden');
                     loadQuizConfigs();
@@ -1462,8 +1473,8 @@
             const targetGroups = (gVal === 'ALL' ? Object.keys(teamsData).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)) : [gVal]);
 
             targetGroups.forEach(gn => {
-                html += `<div class="text-[10px] font-black text-slate-400 mt-8 px-2 border-l-4 border-emerald-500 ml-1 mb-3 uppercase tracking-widest">${gn}</div>`;
-                (teamsData[gn] || []).forEach(name => {
+                const members = teamsData[gn] || [];
+                members.sort().forEach(name => {
                     const sign = cachedSignedUsers.slice().reverse().find(s => s.group === gn && s.name === name);
                     let dot = 'dot-missing', tCol = 'text-rose-500', txt = '未簽到';
                     if (sign) {

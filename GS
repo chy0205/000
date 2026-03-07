@@ -338,6 +338,27 @@ function getLocationsData() {
 // ==========================================
 // 4. 使用者管理
 // ==========================================
+// ==========================================
+// 10. 日誌與輔助功能
+// ==========================================
+
+/**
+ * 記錄操作日誌
+ */
+function logAction(user, group, action, detail) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName('Log') || ss.insertSheet('Log');
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(['時間', '使用者', '組別', '操作項目', '詳細內容']);
+      sheet.getRange(1, 1, 1, 5).setBackground('#f1f5f9').setFontWeight('bold');
+    }
+    sheet.appendRow([new Date(), user, group, action, detail || '']);
+  } catch (e) {
+    console.error("Log Error:", e);
+  }
+}
+
 function handleRegister(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('Users');
@@ -347,6 +368,7 @@ function handleRegister(data) {
       if (rows[i][2] && rows[i][2].toString().trim() !== "") return { success: false, error: "已註冊。" };
       sheet.getRange(i + 1, 3).setValue(data.password.toString());
       sheet.getRange(i + 1, 5).setValue(new Date()); 
+      logAction(data.name, data.group, "註冊", "使用者完成初始註冊");
       return { success: true };
     }
   }
@@ -360,57 +382,59 @@ function handleLogin(data) {
   const user = rows.find(r => r[0].toString().trim() === data.group.toString().trim() && r[1].toString().trim() === data.name.toString().trim());
   if (!user) return { success: false, error: "帳號不存在。" };
   if (!user[2] || user[2].toString().trim() !== data.password.toString().trim()) return { success: false, error: "密碼錯誤。" };
+  logAction(user[1], user[0], "登入", "登入系統成功");
   return { success: true, name: user[1], group: user[0], role: user[3] || '學員' };
 }
 
-/**
- * 取得所有組別與學員資料 (供登入/註冊下拉選單使用)
- */
-function getTeamsData() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName('Users');
-  if (!sheet) return { success: false, error: "找不到 Users 工作表。" };
-  
-  const rows = sheet.getDataRange().getValues();
-  const teams = {};
-  
-  // 假設第一列是標題：組別, 姓名, ...
-  for (let i = 1; i < rows.length; i++) {
-    const group = rows[i][0] ? rows[i][0].toString().trim() : "";
-    const name = rows[i][1] ? rows[i][1].toString().trim() : "";
-    
-    if (group && name && group !== "組別") {
-      if (!teams[group]) teams[group] = [];
-      teams[group].push(name);
-    }
-  }
-  
-  return { success: true, data: teams };
-}
-
-// ==========================================
-// 5. 簽到系統
-// ==========================================
 function handleSignIn(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  // 【更新規則】簽到_YYYY/MM/DD
   const dateStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
   const sheetName = '簽到_' + dateStr;
   let sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   if (sheet.getLastRow() === 0) sheet.appendRow(['時間', '組別', '姓名', '狀態', '備註']);
   sheet.appendRow([new Date(), data.group, data.name, data.leaveType || '正常出席', data.reason || '']);
+  logAction(data.name, data.group, "簽到", `狀態: ${data.leaveType || '正常出席'}, 備註: ${data.reason || '無'}`);
   return { success: true };
 }
 
-function checkAttendanceStatus(group, name) {
+function handleAddBonusPoints(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const dateStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
-  const sheetName = '簽到_' + dateStr;
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return { signedIn: false };
-  const today = Utilities.formatDate(new Date(), "GMT+8", "yyyy-MM-dd");
-  const row = sheet.getDataRange().getValues().slice().reverse().find(r => Utilities.formatDate(new Date(r[0]), "GMT+8", "yyyy-MM-dd") === today && r[1] == group && r[2] == name);
-  return { signedIn: !!row, time: row ? Utilities.formatDate(new Date(row[0]), "GMT+8", "HH:mm") : "" };
+  const sheets = ss.getSheets();
+  const bonusSheets = sheets
+    .filter(s => s.getName().indexOf('加分_') === 0)
+    .sort((a, b) => b.getName().localeCompare(a.getName()));
+    
+  let sheet;
+  if (bonusSheets.length > 0) {
+    sheet = bonusSheets[0];
+  } else {
+    const res = handleCreateBonusSheet();
+    sheet = ss.getSheetByName(res.sheetName);
+  }
+  
+  sheet.appendRow([new Date(), data.group, data.name, data.points, data.reason || '無備註', data.admin || '管理員']);
+  logAction(data.admin || '管理員', 'ADMIN', "加分", `對象: ${data.name}(${data.group}), 分數: ${data.points}, 原因: ${data.reason}`);
+  return { success: true };
+}
+
+function handleCreateBonusSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const now = new Date();
+  const dateStr = Utilities.formatDate(now, "GMT+8", "yyyy/MM/dd");
+  let sheetName = '加分_' + dateStr;
+  
+  let finalName = sheetName;
+  let counter = 1;
+  while (ss.getSheetByName(finalName)) {
+    finalName = sheetName + "_" + counter;
+    counter++;
+  }
+  
+  const sheet = ss.insertSheet(finalName);
+  sheet.appendRow(['時間', '組別', '姓名', '加分分值', '原因', '操作人']);
+  sheet.getRange(1, 1, 1, 6).setBackground('#fef3c7').setFontWeight('bold');
+  logAction("管理員", "ADMIN", "建立加分頁", `分頁名稱: ${finalName}`);
+  return { success: true, sheetName: finalName };
 }
 
 function getAttendanceReport(role, userGroup) {
@@ -419,45 +443,60 @@ function getAttendanceReport(role, userGroup) {
     const sheets = ss.getSheets();
     const todayStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
     const attendanceSheet = ss.getSheetByName('簽到_' + todayStr);
+    const userSheet = ss.getSheetByName('Users');
     
-    if (!attendanceSheet) return { success: true, data: [] }; 
-    
-    // 1. 獲取所有簽到紀錄
-    const rows = attendanceSheet.getDataRange().getValues();
-    const attendanceData = rows.slice(1).filter(r => {
-      const safeRole = role || '';
-      return (safeRole.includes('Admin') || safeRole.includes('Teacher') || r[1] == userGroup);
-    }).map(r => {
-      let extractedTime = "??:??";
-      try {
-        if (r[0]) extractedTime = Utilities.formatDate(new Date(r[0]), "GMT+8", "HH:mm");
-      } catch (e) { extractedTime = "--:--"; }
-      return { group: r[1], name: r[2], time: extractedTime, note: r[3] };
-    });
+    // 1. 獲取所有使用者 (過濾名單)
+    const allUsers = userSheet.getDataRange().getValues().slice(1)
+      .filter(u => {
+        const uGroup = u[0];
+        const safeRole = role || '';
+        if (safeRole.includes('Admin') || safeRole.includes('Teacher')) return true;
+        return uGroup == userGroup;
+      }).map(u => ({ group: u[0], name: u[1] }));
 
-    // 2. 獲取累計加分 (從最新的加分表)
+    // 2. 獲取今日簽到紀錄
+    const attendanceMap = {};
+    if (attendanceSheet) {
+      const rows = attendanceSheet.getDataRange().getValues();
+      rows.slice(1).forEach(r => {
+        let extractedTime = "??:??";
+        try {
+          if (r[0]) extractedTime = Utilities.formatDate(new Date(r[0]), "GMT+8", "HH:mm");
+        } catch (e) {}
+        attendanceMap[r[2]] = { time: extractedTime, note: r[3] };
+      });
+    }
+
+    // 3. 獲取累計加分 (從最新的加分表)
     const bonusMap = {};
     const bonusSheet = sheets.filter(s => s.getName().startsWith("加分_")).sort((a,b) => b.getName().localeCompare(a.getName()))[0];
     if (bonusSheet) {
       const bRows = bonusSheet.getDataRange().getValues();
       for(let i=1; i<bRows.length; i++) {
-        const bName = bRows[i][2]; // 根據 handleAddBonusPoints, 姓名在第 3 欄 (index 2)
-        const bPts = parseFloat(bRows[i][3] || 0); // 分值在第 4 欄 (index 3)
+        const bName = bRows[i][2];
+        const bPts = parseFloat(bRows[i][3] || 0);
         if (bName) bonusMap[bName] = (bonusMap[bName] || 0) + bPts;
       }
     }
 
-    // 3. 整合資料
-    const result = attendanceData.map(record => ({
-      ...record,
-      pts: bonusMap[record.name] || 0
-    }));
+    // 4. 整合資料：以所有使用者為基礎
+    const result = allUsers.map(user => {
+      const sign = attendanceMap[user.name];
+      return {
+        group: user.group,
+        name: user.name,
+        time: sign ? sign.time : null,
+        note: sign ? sign.note : null,
+        pts: bonusMap[user.name] || 0
+      };
+    });
 
     return { success: true, data: result };
   } catch (err) {
     return { success: false, error: err.toString() };
   }
 }
+
 // ==========================================
 // 6. 全域配置 (測驗時段、雲端 ID 等)
 // ==========================================
