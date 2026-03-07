@@ -2405,9 +2405,7 @@
 
         async function fetchSingleSheet(gid) {
             try {
-                const res = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`), text = await res.text();
-                alert(text); // Temporary debug
-                const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
+                const res = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`), text = await res.text(), match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/);
                 if (!match) return [];
                 const data = JSON.parse(match[1]);
                 if (!data.table || !data.table.rows) return [];
@@ -2418,10 +2416,11 @@
                         const cells = r.c.map(cell => cell ? (cell.v !== undefined && cell.v !== null ? cell.v : "") : "");
                         if (cells.length < 1) return null;
 
-                        // 智慧欄位偵測：如果有題號欄位 (數字或帶有 "Q")，整體後移
-                        const cell0 = cells[0];
-                        const cell1 = cells[1];
-                        const offset = ((typeof cell0 === 'number') || (typeof cell0 === 'string' && /^[Qq\d\.]+/.test(cell0.toString()))) && cell1 ? 1 : 0;
+                        // 智慧欄位偵測：僅當第一欄「非常短」且「看似題數/題號」且「第二欄比第一欄長」時才後移
+                        const cell0 = (cells[0] || "").toString().trim();
+                        const cell1 = (cells[1] || "").toString().trim();
+                        const isId = cell0.length > 0 && cell0.length <= 5 && /^[Qq\d\.\s]+$/.test(cell0);
+                        const offset = (isId && cell1.length > cell0.length) ? 1 : 0;
 
                         const qText = (cells[offset + 0] || "").toString().trim();
                         if (!qText || qText === "題目") return null;
