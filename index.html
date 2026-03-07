@@ -1303,7 +1303,8 @@
         function renderAnnouncements() {
             const list = document.getElementById('announcement-list');
             if (!list) return;
-            const isStaff = ['Admin', '管理員', 'Teacher', '老師', '發布員'].some(r => currentUser?.role.includes(r));
+            const r = (currentUser?.role || '').toUpperCase();
+            const isStaff = ['ADMIN', '管理員', 'TEACHER', '老師', '發布員'].some(x => r.includes(x.toUpperCase()));
             const filtered = cachedAnnouncements.filter(a => isStaff || a.visible !== 'N');
 
             list.innerHTML = filtered.length ? filtered.map((ann) => {
@@ -1420,8 +1421,9 @@
 
         async function loadAdminDashboard() {
             if (!currentUser) return;
-            const isAdminOrTeacher = ['Admin', '管理員', 'Teacher', '老師'].some(r => currentUser.role.includes(r));
-            const isLeader = ['Leader', '組長'].some(r => currentUser.role.includes(r));
+            const r = (currentUser.role || '').toUpperCase();
+            const isAdminOrTeacher = ['ADMIN', '管理員', 'TEACHER', '老師'].some(x => r.includes(x.toUpperCase()));
+            const isLeader = ['LEADER', '組長'].some(x => r.includes(x.toUpperCase()));
 
             try {
                 const [attendanceRes, homeworkConfigRes] = await Promise.all([
@@ -1451,7 +1453,7 @@
                         filterSelect.add(new Option("🌟 查看所有組別 (所有成員)", "ALL"));
                         Object.keys(teamsData).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b)).forEach(g => filterSelect.add(new Option(g, g)));
                     }
-                    if (currentUser.role.includes('Admin') || currentUser.role.includes('管理員')) {
+                    if (r.includes('ADMIN') || r.includes('管理員')) {
                         createBonusSheetBtn?.classList.remove('hidden');
                     }
                     document.getElementById('quiz-config-container').classList.remove('hidden');
@@ -1473,7 +1475,8 @@
 
         function applyFilters() {
             const list = document.getElementById('attendance-report-list');
-            const isLeader = ['Leader', '組長'].some(r => currentUser.role.includes(r));
+            const r = (currentUser.role || '').toUpperCase();
+            const isLeader = ['LEADER', '組長'].some(x => r.includes(x.toUpperCase()));
             const gVal = isLeader ? currentUser.group : (document.getElementById('admin-group-filter')?.value || '');
 
             if (!gVal) {
@@ -1712,7 +1715,8 @@
         function renderHomeworkReport() {
             const topic = document.getElementById('admin-homework-topic').value;
             const listDiv = document.getElementById('homework-report-list');
-            const isLeader = ['Leader', '組長'].some(r => currentUser.role.includes(r));
+            const r = (currentUser.role || '').toUpperCase();
+            const isLeader = ['LEADER', '組長'].some(x => r.includes(x.toUpperCase()));
             const gVal = isLeader ? currentUser.group : (document.getElementById('admin-group-filter')?.value || 'ALL');
 
             let html = '';
