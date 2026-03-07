@@ -1052,6 +1052,13 @@
             if (url.includes('drive.google.com/file/d/')) {
                 return `https://drive.google.com/uc?id=${url.split('/d/')[1].split('/')[0]}`;
             }
+            if (url.includes('drive.google.com/open?id=')) {
+                return `https://drive.google.com/uc?id=${url.split('id=')[1].split('&')[0]}`;
+            }
+            // If it's a Drive ID (roughly 33 chars or common Drive ID patterns)
+            if (url.length > 20 && !url.includes('http') && !url.includes('/') && !url.includes(' ')) {
+                return `https://drive.google.com/uc?id=${url}`;
+            }
             return url;
         }
 
@@ -2330,21 +2337,49 @@
             const content = document.getElementById('quiz-content'); if (!content) return;
             let h = `<div class="bg-emerald-50 p-4 rounded-2xl mb-6 text-emerald-800 text-xs font-black text-center border">正式測驗中</div>`;
             quizData.forEach((q, i) => {
-                const qId = `q${i + 1}`; let imgHtml = (q.photo && q.photo.includes('http')) ? `<img src="${convertToDirectLink(q.photo)}" class="quiz-image">` : "";
+                const qId = `q${i + 1}`;
+                let imgHtml = (q.photo && (q.photo.includes('http') || (q.photo.length > 20 && !q.photo.includes(' ')))) ? `<img src="${convertToDirectLink(q.photo)}" class="quiz-image" onerror="this.style.display='none'">` : "";
 
-                // 加入亂數打亂選項的邏輯
-                let shuffledOptions = [...q.options].sort(() => Math.random() - 0.5);
+                // Normalizing type
+                const qType = (q.type || 'single').toLowerCase();
+                const isFill = q.isBonus || qType === 'fill' || qType === 'text' || qType === '填充' || qType === '填空';
+                const isSingle = qType === 'single' || qType === 'radio' || qType === '單選' || qType === '單選題';
 
-                let opts = q.isBonus || q.type === 'fill' ? `<input type="text" class="w-full p-4 bg-slate-50 border rounded-2xl" id="${qId}-input">` : shuffledOptions.map(o => `<label class="border p-4 rounded-2xl flex items-center mb-2 cursor-pointer"><input type="${q.type === 'single' ? 'radio' : 'checkbox'}" name="${qId}" value="${o}" class="mr-4 w-6 h-6"><span class="font-bold text-slate-700">${o}</span></label>`).join('');
-                h += `<div class="${q.isBonus ? 'bonus-card' : 'question-card'} p-6 rounded-3xl shadow-sm mb-6 bg-white border"><div>Q${i + 1}</div><h3 class="font-black text-lg mb-2 text-slate-800">${q.question}</h3>${imgHtml}<div class="mt-4">${opts}</div></div>`;
+                let opts = "";
+                if (isFill) {
+                    opts = `<input type="text" class="w-full p-4 bg-slate-50 border rounded-2xl" id="${qId}-input" placeholder="在此輸入回答...">`;
+                } else {
+                    // Shuffling options
+                    let shuffledOptions = [...(q.options || [])].sort(() => Math.random() - 0.5);
+                    opts = shuffledOptions.map(o => `
+                        <label class="border p-4 rounded-2xl flex items-center mb-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="${isSingle ? 'radio' : 'checkbox'}" name="${qId}" value="${o}" class="mr-4 w-6 h-6">
+                            <span class="font-bold text-slate-700">${o}</span>
+                        </label>
+                    `).join('');
+                }
+
+                h += `
+                <div class="${q.isBonus ? 'bonus-card' : 'question-card'} p-6 rounded-3xl shadow-sm mb-6 bg-white border">
+                    <div class="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Q${i + 1}</div>
+                    <h3 class="font-black text-lg mb-2 text-slate-800">${q.question}</h3>
+                    ${imgHtml}
+                    <div class="mt-4">${opts}</div>
+                </div>`;
             });
-            h += `<button onclick="handleQuizSubmit()" id="quiz-final-btn" class="w-full py-5 btn-primary rounded-3xl font-black text-xl shadow-2xl mt-10">提交考卷</button>`; content.innerHTML = h; window.scrollTo(0, 0);
+            h += `<button onclick="handleQuizSubmit()" id="quiz-final-btn" class="w-full py-5 btn-primary rounded-3xl font-black text-xl shadow-2xl mt-10">提交考卷</button>`;
+            content.innerHTML = h; window.scrollTo(0, 0);
         }
         async function handleQuizSubmit() {
             const btn = document.getElementById('quiz-final-btn'); btn.disabled = true;
             const answers = quizData.map((q, i) => {
-                let val = '未作答'; if (q.isBonus || q.type === 'fill') val = document.getElementById(`q${i + 1}-input`)?.value.trim() || '未作答';
-                else if (q.type === 'single') val = document.querySelector(`input[name="q${i + 1}"]:checked`)?.value || '未作答';
+                let val = '未作答';
+                const qType = (q.type || 'single').toLowerCase();
+                const isFill = q.isBonus || qType === 'fill' || qType === 'text' || qType === '填充' || qType === '填空';
+                const isSingle = qType === 'single' || qType === 'radio' || qType === '單選' || qType === '單選題';
+
+                if (isFill) val = document.getElementById(`q${i + 1}-input`)?.value.trim() || '未作答';
+                else if (isSingle) val = document.querySelector(`input[name="q${i + 1}"]:checked`)?.value || '未作答';
                 else val = Array.from(document.querySelectorAll(`input[name="q${i + 1}"]:checked`)).map(i => i.value).sort().join(', ');
                 return { userAnswer: val, isBonus: q.isBonus, photo: q.photo, question: q.question };
             });
@@ -2358,19 +2393,25 @@
             try {
                 const res = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`), text = await res.text(), data = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/)[1]);
                 return data.table.rows.map(r => {
-                    if (!r.c[0]?.v && !r.c[1]?.v) return null; // 確保有內容
+                    if (!r || !r.c || (!r.c[0]?.v && !r.c[1]?.v)) return null;
 
-                    // 智慧欄位偵測：如果第一欄是純數字且第二欄有文字，判定為「題號」欄位，整體後移
-                    const offset = (typeof r.c[0]?.v === 'number' && r.c[1]?.v) ? 1 : 0;
+                    // 智慧欄位偵測：如果有題號欄位 (數字或帶有 "Q")，整體後移
+                    const cell0 = r.c[0]?.v;
+                    const cell1 = r.c[1]?.v;
+                    const offset = (typeof cell0 === 'number' || (typeof cell0 === 'string' && /^[Qq]\d+/.test(cell0))) && cell1 ? 1 : 0;
+
+                    const typeRaw = (r.c[offset + 1]?.v || 'single').toString().toLowerCase().trim();
+                    const optsRaw = r.c[offset + 2]?.v ? r.c[offset + 2].v.toString() : "";
 
                     return {
                         question: r.c[offset + 0]?.v,
-                        type: r.c[offset + 1]?.v?.toLowerCase().trim() || 'single',
-                        options: r.c[offset + 2]?.v ? String(r.c[offset + 2].v).split(',').map(s => s.trim()) : [],
-                        answer: String(r.c[offset + 3]?.v || '').split(',').map(s => s.trim()),
+                        type: typeRaw,
+                        // 支援更豐富的分割符：全、半形逗號、換行、分號
+                        options: optsRaw ? optsRaw.split(/[,，\n;]+/).map(s => s.trim()).filter(s => s) : [],
+                        answer: String(r.c[offset + 3]?.v || '').split(/[,，\n;]+/).map(s => s.trim()).filter(s => s),
                         score: parseFloat(r.c[offset + 4]?.v || 0),
                         photo: r.c[offset + 5]?.v || '',
-                        isBonus: r.c[offset + 6]?.v === '是' || r.c[offset + 6]?.v === 'Yes'
+                        isBonus: ['是', 'yes', 'true', 'y', '1'].includes((r.c[offset + 6]?.v || '').toString().toLowerCase().trim())
                     };
                 }).filter(q => q !== null && q.question);
             } catch (e) { console.error("Fetch Sheet Error:", e); return []; }
