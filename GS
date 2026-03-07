@@ -161,7 +161,7 @@ function handleLogin(data) {
 function handleSignIn(data) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const dateStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
-  const sheetName = '簽到_' + dateStr;
+  const sheetName = '簽到' + dateStr;
   let sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['時間', '組別', '姓名', '狀態', '備註']);
@@ -175,7 +175,7 @@ function handleSignIn(data) {
 function checkAttendanceStatus(group, name) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const dateStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
-  const sheetName = '簽到_' + dateStr;
+  const sheetName = '簽到' + dateStr;
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { signedIn: false };
   const today = Utilities.formatDate(new Date(), "GMT+8", "yyyy-MM-dd");
@@ -190,7 +190,7 @@ function getAttendanceReport(role, userGroup) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheets = ss.getSheets();
     const todayStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
-    const attendanceSheet = ss.getSheetByName('簽到_' + todayStr);
+    const attendanceSheet = ss.getSheetByName('簽到' + todayStr);
     const userSheet = ss.getSheetByName('Users');
     
     // 1. 獲取所有使用者 (過濾名單)
@@ -453,7 +453,7 @@ function getUserHomeworkHistory(group, name) {
 function handleSubmitQuiz(p) {
   const monthStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM");
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheetName = '成績_' + monthStr;
+  const sheetName = '結果' + monthStr;
   let sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   let headers = ['時間戳記', '組別', '姓名', '科目', '分數', '詳情'];
   const ua = JSON.parse(p.userAnswersJson), qd = JSON.parse(p.quizDataJson);
@@ -508,7 +508,7 @@ function getHistory(group, name) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const history = [];
   ss.getSheets().forEach(s => {
-    if (s.getName().indexOf('成績_') === 0) {
+    if (s.getName().indexOf('結果') === 0) {
       const data = s.getDataRange().getValues();
       data.slice(1).forEach(r => {
         if (r[0] && r[1] == group && r[2] == name) {
