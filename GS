@@ -20,7 +20,7 @@ function doGet(e) {
       case 'getHistory': return JSONResponse(getHistory(group, name));
       case 'getConfig': return JSONResponse(handleGetConfig());
       case 'checkAttendance': return JSONResponse(checkAttendanceStatus(group, name));
-      case 'getAttendanceReport': return JSONResponse(getAttendanceReport(role, group));
+      case 'getAttendanceReport': return JSONResponse(getAttendanceReport(role, group, e.parameter.bonusSheetName));
       case 'getAnnouncements': return JSONResponse(getAnnouncements());
       case 'getLocations': return JSONResponse(getLocationsData());
       case 'getHomeworkConfig': return JSONResponse(getHomeworkConfig());
@@ -185,7 +185,7 @@ function checkAttendanceStatus(group, name) {
   return { signedIn: !!row, time: row ? Utilities.formatDate(new Date(row[0]), "GMT+8", "HH:mm") : "" };
 }
 
-function getAttendanceReport(role, userGroup) {
+function getAttendanceReport(role, userGroup, bonusSheetName) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheets = ss.getSheets();
@@ -219,7 +219,12 @@ function getAttendanceReport(role, userGroup) {
     const bonusMap = {};
     const totalBonusMap = {};
     const allBonusSheets = sheets.filter(s => s.getName().startsWith("加分_"));
-    const latestBonusSheet = allBonusSheets.sort((a,b) => b.getName().localeCompare(a.getName()))[0];
+    
+    let targetBonusSheet = allBonusSheets.sort((a,b) => b.getName().localeCompare(a.getName()))[0];
+    if (bonusSheetName) {
+      const found = allBonusSheets.find(s => s.getName() === bonusSheetName);
+      if (found) targetBonusSheet = found;
+    }
 
     allBonusSheets.forEach(s => {
       const bRows = s.getDataRange().getValues();
@@ -228,7 +233,7 @@ function getAttendanceReport(role, userGroup) {
         const bPts = parseFloat(bRows[i][3] || 0);
         if (bName) {
            totalBonusMap[bName] = (totalBonusMap[bName] || 0) + bPts;
-           if (s.getName() === latestBonusSheet?.getName()) {
+           if (s.getName() === targetBonusSheet?.getName()) {
               bonusMap[bName] = (bonusMap[bName] || 0) + bPts;
            }
         }
