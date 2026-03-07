@@ -1010,7 +1010,7 @@
     <script>
         // --- 設定與環境變數 ---
         const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9J_ZVEfvY_FTiYAuikLCsfEcspDQEIjsiBLWLGqSuSgwDRKJX-geW_RtA4emKRiNT/exec';
-        const SPREADSHEET_ID = '1zgooij9pB4VIYGDti8QgbNu5VQVnd4Ke6UsYQnBrfsk';
+        const SPREADSHEET_ID = '1kH0IJ9i_PBw2vWPkv7LVKN33nTBhktIN1AFN-O694QU';
         const TEAMS_GID = '1026036029';
         const GROUP_ORDER = ['第一組', '第二組', '第三組', '第四組', '第五組', '第六組', '第七組', '孟加拉', '德國', '印尼', '馬來', '神州', '主領班', '特助'];
         const QUIZ_GIDS = { '隨堂': '0', '論語': '1250135497', '性理': '1342680959', '道德經': '1246480043', '六祖': '1302889740' };
@@ -2358,10 +2358,22 @@
             try {
                 const res = await fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`), text = await res.text(), data = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);/)[1]);
                 return data.table.rows.map(r => {
-                    if (!r.c[0]?.v) return null;
-                    return { question: r.c[0]?.v, type: r.c[1]?.v?.toLowerCase().trim() || 'single', options: r.c[2]?.v ? String(r.c[2].v).split(',').map(s => s.trim()) : [], answer: String(r.c[3]?.v || '').split(',').map(s => s.trim()), score: parseFloat(r.c[4]?.v || 0), photo: r.c[5]?.v || '', isBonus: r.c[6]?.v === '是' || r.c[6]?.v === 'Yes' };
-                }).filter(q => q !== null);
-            } catch (e) { return []; }
+                    if (!r.c[0]?.v && !r.c[1]?.v) return null; // 確保有內容
+
+                    // 智慧欄位偵測：如果第一欄是純數字且第二欄有文字，判定為「題號」欄位，整體後移
+                    const offset = (typeof r.c[0]?.v === 'number' && r.c[1]?.v) ? 1 : 0;
+
+                    return {
+                        question: r.c[offset + 0]?.v,
+                        type: r.c[offset + 1]?.v?.toLowerCase().trim() || 'single',
+                        options: r.c[offset + 2]?.v ? String(r.c[offset + 2].v).split(',').map(s => s.trim()) : [],
+                        answer: String(r.c[offset + 3]?.v || '').split(',').map(s => s.trim()),
+                        score: parseFloat(r.c[offset + 4]?.v || 0),
+                        photo: r.c[offset + 5]?.v || '',
+                        isBonus: r.c[offset + 6]?.v === '是' || r.c[offset + 6]?.v === 'Yes'
+                    };
+                }).filter(q => q !== null && q.question);
+            } catch (e) { console.error("Fetch Sheet Error:", e); return []; }
         }
 
         function initApp() {
