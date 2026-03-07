@@ -414,27 +414,49 @@ function checkAttendanceStatus(group, name) {
 }
 
 function getAttendanceReport(role, userGroup) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const todayStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
-  const sheetName = '簽到_' + todayStr;
-  const sheet = ss.getSheetByName(sheetName);
-  
-  if (!sheet) return { success: true, data: [] }; 
-  
-  const list = sheet.getDataRange().getValues().slice(1).filter(r => {
-    const safeRole = role || '';
-    return (safeRole.includes('Admin') || safeRole.includes('Teacher') || r[1] == userGroup);
-   }).map(r => {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheets = ss.getSheets();
+    const todayStr = Utilities.formatDate(new Date(), "GMT+8", "yyyy/MM/dd");
+    const attendanceSheet = ss.getSheetByName('簽到_' + todayStr);
+    
+    if (!attendanceSheet) return { success: true, data: [] }; 
+    
+    // 1. 獲取所有簽到紀錄
+    const rows = attendanceSheet.getDataRange().getValues();
+    const attendanceData = rows.slice(1).filter(r => {
+      const safeRole = role || '';
+      return (safeRole.includes('Admin') || safeRole.includes('Teacher') || r[1] == userGroup);
+    }).map(r => {
       let extractedTime = "??:??";
       try {
-          if (r[0]) {
-              extractedTime = Utilities.formatDate(new Date(r[0]), "GMT+8", "HH:mm");
-          }
+        if (r[0]) extractedTime = Utilities.formatDate(new Date(r[0]), "GMT+8", "HH:mm");
       } catch (e) { extractedTime = "--:--"; }
       return { group: r[1], name: r[2], time: extractedTime, note: r[3] };
-  });
-  
-  return { success: true, data: list };
+    });
+
+    // 2. 獲取累計加分 (從最新的加分表)
+    const bonusMap = {};
+    const bonusSheet = sheets.filter(s => s.getName().startsWith("加分_")).sort((a,b) => b.getName().localeCompare(a.getName()))[0];
+    if (bonusSheet) {
+      const bRows = bonusSheet.getDataRange().getValues();
+      for(let i=1; i<bRows.length; i++) {
+        const bName = bRows[i][2]; // 根據 handleAddBonusPoints, 姓名在第 3 欄 (index 2)
+        const bPts = parseFloat(bRows[i][3] || 0); // 分值在第 4 欄 (index 3)
+        if (bName) bonusMap[bName] = (bonusMap[bName] || 0) + bPts;
+      }
+    }
+
+    // 3. 整合資料
+    const result = attendanceData.map(record => ({
+      ...record,
+      pts: bonusMap[record.name] || 0
+    }));
+
+    return { success: true, data: result };
+  } catch (err) {
+    return { success: false, error: err.toString() };
+  }
 }
 // ==========================================
 // 6. 全域配置 (測驗時段、雲端 ID 等)
