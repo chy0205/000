@@ -594,7 +594,7 @@
                     <div id="homework-dynamic-question-container"
                         class="hidden p-5 bg-indigo-50/50 border border-indigo-100 rounded-2xl space-y-6"></div>
 
-                    <div>
+                    <div id="homework-reflection-area">
                         <div class="flex justify-between items-end mb-1 px-1">
                             <label class="text-[10px] text-slate-400 uppercase">心得內容 <span id="homework-min-hint"
                                     class="text-indigo-600 font-black ml-1"></span></label>
@@ -1853,6 +1853,11 @@
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <input type="text" placeholder="作業主題" class="cfg-topic p-3 border rounded-xl text-sm font-bold" value="${cfg.topic}">
+                    <div class="grid grid-cols-2 gap-3 items-center">
+                        <div class="flex items-center gap-2">
+                             <input type="checkbox" class="cfg-show-reflection w-5 h-5 accent-indigo-600" ${cfg.showReflection !== false ? 'checked' : ''}>
+                             <span class="text-sm font-bold text-slate-600">顯示心得輸入框</span>
+                        </div>
                         <input type="number" placeholder="最低字數" class="cfg-min p-3 border rounded-xl text-sm font-bold" value="${cfg.minChars}">
                     </div>
                     
@@ -1939,7 +1944,8 @@
                         });
                     }
                 });
-                if (topic) data.push({ topic, minChars: min, questions: questions });
+                const showRef = row.querySelector('.cfg-show-reflection').checked;
+                if (topic) data.push({ topic, minChars: min, questions: questions, showReflection: showRef });
             });
 
             btn.disabled = true;
@@ -1977,7 +1983,9 @@
             const dynamicContainer = document.getElementById('homework-dynamic-question-container');
 
             if (cfg) {
-                hint.innerText = `(最少需寫 ${cfg.minChars} 字)`;
+                hint.innerText = cfg.showReflection ? `(最少需寫 ${cfg.minChars} 字)` : "";
+                document.getElementById('homework-reflection-area').style.display = cfg.showReflection ? 'block' : 'none';
+                
                 const questions = cfg.questions || [];
 
                 if (questions.length > 0) {

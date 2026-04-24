@@ -381,16 +381,21 @@ function getHomeworkConfig() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName('HomeworkSettings') || ss.insertSheet('HomeworkSettings');
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['作業主題', '最低字數', '題目資料JSON']);
-    sheet.getRange(1,1,1,3).setBackground('#e0e7ff').setFontWeight('bold');
+    sheet.appendRow(['作業主題', '最低字數', '題目資料JSON', '是否顯示心得']);
+    sheet.getRange(1,1,1,4).setBackground('#e0e7ff').setFontWeight('bold');
     const defaultQs = JSON.stringify([{ q: "今日學習狀態", opts: ["法喜充滿", "收穫良多", "還在消化"], img: "" }]);
-    sheet.appendRow(['預設心得作業', 200, defaultQs]);
+    sheet.appendRow(['預設心得作業', 200, defaultQs, 'Y']);
   }
   const data = sheet.getDataRange().getValues();
   const config = data.slice(1).map(row => {
     let questions = [];
     try { questions = row[2] ? JSON.parse(row[2].toString()) : []; } catch (e) {}
-    return { topic: row[0].toString(), minChars: parseInt(row[1]) || 0, questions: questions };
+    return { 
+      topic: row[0].toString(), 
+      minChars: parseInt(row[1]) || 0, 
+      questions: questions,
+      showReflection: row[3] !== 'N' // 預設為 Y
+    };
   }).filter(c => c.topic !== "");
   return { success: true, data: config };
 }
@@ -400,10 +405,10 @@ function handleUpdateHomeworkSettings(configStr) {
   const sheet = ss.getSheetByName('HomeworkSettings') || ss.insertSheet('HomeworkSettings');
   const configs = JSON.parse(configStr);
   sheet.clear();
-  sheet.appendRow(['作業主題', '最低字數', '題目資料JSON']);
-  sheet.getRange(1, 1, 1, 3).setBackground('#e0e7ff').setFontWeight('bold');
+  sheet.appendRow(['作業主題', '最低字數', '題目資料JSON', '是否顯示心得']);
+  sheet.getRange(1, 1, 1, 4).setBackground('#e0e7ff').setFontWeight('bold');
   configs.forEach(cfg => {
-    sheet.appendRow([cfg.topic, cfg.minChars, JSON.stringify(cfg.questions || [])]);
+    sheet.appendRow([cfg.topic, cfg.minChars, JSON.stringify(cfg.questions || []), cfg.showReflection ? 'Y' : 'N']);
   });
   return { success: true };
 }
