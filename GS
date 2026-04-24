@@ -240,7 +240,17 @@ function getAttendanceReport(role, userGroup, bonusSheetName) {
       }
     });
 
-    // 4. 整合資料：以所有使用者為基礎
+    // 4. 獲取累計作業繳交次數 (掃描所有作業表)
+    const hwCountMap = {};
+    sheets.filter(s => s.getName().startsWith("作業_")).forEach(s => {
+      const hRows = s.getDataRange().getValues();
+      for(let i=1; i<hRows.length; i++) {
+        const hName = hRows[i][2];
+        if (hName) hwCountMap[hName] = (hwCountMap[hName] || 0) + 1;
+      }
+    });
+
+    // 5. 整合資料：以所有使用者為基礎
     const result = allUsers.map(user => {
       const sign = attendanceMap[user.name];
       return {
@@ -249,7 +259,8 @@ function getAttendanceReport(role, userGroup, bonusSheetName) {
         time: sign ? sign.time : "",
         note: sign ? sign.note : "",
         pts: bonusMap[user.name] || 0,
-        totalPts: totalBonusMap[user.name] || 0
+        totalPts: totalBonusMap[user.name] || 0,
+        hwCount: hwCountMap[user.name] || 0
       };
     });
 
