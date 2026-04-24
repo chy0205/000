@@ -310,7 +310,7 @@ function getBonusStats(targetSheetName) {
     .filter(s => s.getName().indexOf('加分_') === 0)
     .sort((a, b) => b.getName().localeCompare(a.getName()));
     
-  const groups = ["第一組", "第二組", "第三組", "第四組", "第五組", "第六組", "第七組"];
+  const groups = ["第一組", "第二組", "第三組", "第四組", "第五組", "第六組", "第七組", "馬來西亞"];
   const sheetStats = {};
   const totalStats = {};
   
