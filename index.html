@@ -1787,34 +1787,50 @@
             targetGroups.forEach(gn => {
                 const members = teamsData[gn] || [];
                 const submissionsInGroup = cachedHomeworkSubmissions.filter(s => s.group === gn);
-                const submittedNames = submissionsInGroup.map(s => s.name);
-                const unsubmittedNames = members.filter(name => !submittedNames.includes(name));
+                
+                // 將繳交紀錄按姓名分組
+                const submissionGroups = {};
+                submissionsInGroup.forEach(s => {
+                    if (!submissionGroups[s.name]) submissionGroups[s.name] = [];
+                    submissionGroups[s.name].push(s);
+                });
 
                 html += `<div class="text-[10px] font-black text-indigo-400 mt-6 px-2 border-l-4 border-indigo-500 ml-1 mb-3 uppercase tracking-widest">${gn} - 統計報告</div>`;
 
-                submissionsInGroup.forEach(s => {
-                    html += `
-                    <div class="bg-white p-4 rounded-2xl border border-emerald-100 mb-2 shadow-sm submitted-card flex justify-between items-start">
-                        <div>
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">已繳交</span>
-                                <span class="font-bold text-slate-700">${s.name}</span>
+                // 遍歷所有組員，區分已繳交與未繳交
+                members.sort().forEach(name => {
+                    const userSubmissions = submissionGroups[name] || [];
+                    if (userSubmissions.length > 0) {
+                        // 已繳交：顯示一張卡片與繳交次數
+                        const lastSub = userSubmissions[userSubmissions.length - 1]; // 取得最後一筆
+                        html += `
+                        <div class="bg-white p-4 rounded-2xl border border-emerald-100 mb-2 shadow-sm submitted-card flex justify-between items-center hover:border-emerald-300 transition-all cursor-pointer" onclick="viewMemberHomework('${gn}', '${name}')">
+                            <div class="flex items-center gap-3">
+                                <div class="flex flex-col">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">已繳交</span>
+                                        <span class="font-bold text-slate-700">${name}</span>
+                                        <span class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-black">📝 ${userSubmissions.length}</span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 font-medium truncate max-w-[200px]">${lastSub.reflection.substring(0, 40)}...</p>
+                                </div>
                             </div>
-                            <p class="text-[10px] text-slate-400 font-medium truncate max-w-[180px]">${s.reflection.substring(0, 30)}...</p>
-                        </div>
-                        <span class="text-[10px] text-slate-300 font-black tracking-tighter">${s.time}</span>
-                    </div>`;
-                });
-
-                unsubmittedNames.forEach(name => {
-                    html += `
-                    <div class="bg-white p-4 rounded-2xl border border-rose-100 mb-2 shadow-sm unsubmitted-card flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded">未繳交</span>
-                            <span class="font-bold text-slate-700">${name}</span>
-                        </div>
-                        <button onclick="remindHomework('${name}')" class="text-[10px] font-black text-rose-400 hover:text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full transition-colors">發送提醒</button>
-                    </div>`;
+                            <div class="flex flex-col items-end gap-1">
+                                <span class="text-[9px] text-slate-300 font-black tracking-tighter">最新：${lastSub.time}</span>
+                                <span class="text-[9px] text-indigo-400 font-bold">點擊查看內容</span>
+                            </div>
+                        </div>`;
+                    } else {
+                        // 未繳交
+                        html += `
+                        <div class="bg-white p-4 rounded-2xl border border-rose-100 mb-2 shadow-sm unsubmitted-card flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded">未繳交</span>
+                                <span class="font-bold text-slate-700">${name}</span>
+                            </div>
+                            <button onclick="remindHomework('${name}')" class="text-[10px] font-black text-rose-400 hover:text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full transition-colors">發送提醒</button>
+                        </div>`;
+                    }
                 });
             });
 
