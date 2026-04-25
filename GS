@@ -501,7 +501,7 @@ function handleSubmitQuiz(p) {
     const q = qd[i];
     const isCorrect = u.isBonus ? (u.userAnswer !== '未作答') : [].concat(q.answer).some(a => a.toString().trim().toLowerCase() === u.userAnswer.toString().trim().toLowerCase());
     if (isCorrect) score += (parseFloat(q.score) || 0);
-    return { question: q.question, userAnswer: u.userAnswer, correctAnswer: [].concat(q.answer).join(','), isCorrect };
+    return { question: q.question, userAnswer: u.userAnswer, correctAnswer: [].concat(q.answer).join(','), isCorrect, photo: q.photo };
   });
 
   details.forEach((d, index) => {
