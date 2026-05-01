@@ -2697,10 +2697,9 @@
                 } else if (format === 'pdf') {
                     const { jsPDF } = window.jspdf;
                     const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                    const pdf = new jsPDF('l', 'mm', 'a4');
-                    const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                    pdf.addImage(imgData, 'JPEG', 0, 10, pdfWidth, pdfHeight);
+                    const orientation = canvas.width > canvas.height ? 'l' : 'p';
+                    const pdf = new jsPDF(orientation, 'px', [canvas.width, canvas.height]);
+                    pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
                     pdf.save(`區域出席統計_${dateStr}.pdf`);
                     toast('PDF 下載完成！');
                 }
