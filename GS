@@ -653,7 +653,7 @@ function getRegionReport() {
     const sheet = ss.getSheetByName('區域');
     if (!sheet) return { success: false, error: '找不到工作表: 區域' };
     
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getRange('F1:O84').getDisplayValues();
     return { success: true, data: data };
   } catch (err) {
     return { success: false, error: err.toString() };

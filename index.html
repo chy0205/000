@@ -7,6 +7,7 @@
     <title>崇華十六期整合管理系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Inter:wght@400;600;800&display=swap');
@@ -1036,12 +1037,22 @@
         <div class="modal-content !max-w-5xl" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-6 border-b pb-4">
                 <h3 class="text-xl font-black text-slate-800">區域出席統計表</h3>
-                <button onclick="closeRegionReportModal()"
-                    class="text-slate-400 hover:text-slate-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button onclick="downloadRegionReport('jpg')" class="text-[10px] font-black text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        JPG
+                    </button>
+                    <button onclick="downloadRegionReport('pdf')" class="text-[10px] font-black text-white bg-rose-500 hover:bg-rose-600 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        PDF
+                    </button>
+                    <button onclick="closeRegionReportModal()"
+                        class="text-slate-400 hover:text-slate-600 ml-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div id="region-report-content" class="overflow-x-auto max-h-[60vh] overflow-y-auto pr-2">
                 <div class="text-center py-10 text-slate-300 font-bold italic">載入中...</div>
@@ -2653,6 +2664,45 @@
                 container.innerHTML = tableHTML;
             } catch (e) {
                 container.innerHTML = `<div class="text-center py-10 text-rose-500 font-bold">載入失敗: ${e.message}</div>`;
+            }
+        }
+
+        async function downloadRegionReport(format) {
+            const el = document.getElementById('region-report-content');
+            if (el.innerText.includes('載入資料中') || el.innerText.includes('目前無區域資料')) return toast('沒有資料可供下載', true);
+            
+            toast('正在產生檔案，請稍候...');
+            try {
+                const originalOverflow = el.style.overflow;
+                const originalMaxHeight = el.style.maxHeight;
+                el.style.overflow = 'visible';
+                el.style.maxHeight = 'none';
+
+                const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' });
+                
+                el.style.overflow = originalOverflow;
+                el.style.maxHeight = originalMaxHeight;
+
+                const dateStr = getBatchFormattedDate();
+                if (format === 'jpg') {
+                    const link = document.createElement('a');
+                    link.download = `區域出席統計_${dateStr}.jpg`;
+                    link.href = canvas.toDataURL('image/jpeg', 0.9);
+                    link.click();
+                    toast('JPG 下載完成！');
+                } else if (format === 'pdf') {
+                    const { jsPDF } = window.jspdf;
+                    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                    const pdf = new jsPDF('l', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                    pdf.addImage(imgData, 'JPEG', 0, 10, pdfWidth, pdfHeight);
+                    pdf.save(`區域出席統計_${dateStr}.pdf`);
+                    toast('PDF 下載完成！');
+                }
+            } catch (err) {
+                console.error(err);
+                toast('下載失敗: ' + err.message, true);
             }
         }
 
