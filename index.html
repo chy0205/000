@@ -605,10 +605,10 @@
                             class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl h-48 outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 leading-relaxed"></textarea>
                     </div>
 
-                    <div>
+                    <div id="homework-file-upload-area">
                         <label
                             class="text-[10px] text-slate-400 uppercase tracking-widest flex justify-between items-center ml-1 mb-1">
-                            <span>參考網址 / 雲端連結 (選填)</span>
+                            <span id="homework-file-label">參考網址 / 雲端連結 (選填)</span>
                             <!-- 作業專屬上傳按鈕 -->
                             <button id="homework-upload-btn"
                                 onclick="document.getElementById('homework-file-picker').click()"
@@ -620,14 +620,19 @@
                                 檔案上傳
                             </button>
                         </label>
-                        <input type="url" id="homework-url" oninput="updateUrlPreview()" placeholder="https://..."
-                            class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 mt-1">
-                        <div id="homework-url-preview" class="mt-2 ml-1 hidden">
-                            <a id="homework-url-link" href="#" target="_blank"
-                                class="text-indigo-600 font-black underline break-all flex items-center gap-1 text-[11px]">
-                                🔗 點擊驗證上傳檔案
-                            </a>
+                        <!-- 用來儲存所有 URL，以逗號隔開 -->
+                        <input type="hidden" id="homework-url">
+                        
+                        <!-- 手動輸入網址與新增網址按鈕 -->
+                        <div class="flex gap-2 mt-1" id="homework-url-input-container">
+                            <input type="url" id="homework-url-input" placeholder="手動貼上網址... (例如 https://...)"
+                                class="flex-1 p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 text-sm">
+                            <button onclick="addUrlFromInput()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 rounded-2xl text-xs font-black hover:bg-indigo-100 transition-all">新增</button>
                         </div>
+                        
+                        <!-- 已上傳/新增的檔案列表 -->
+                        <div id="homework-uploaded-files-list" class="space-y-2 mt-3"></div>
+                        
                         <input type="file" id="homework-file-picker" class="hidden"
                             onchange="handleHomeworkFileUpload(event)">
                     </div>
@@ -1083,6 +1088,7 @@
         let currentUser = null, teamsData = {}, historyData = [], cachedAnnouncements = [], cachedSignedUsers = [], proxyTarget = null, bonusTarget = null;
         let currentQuizOpenStatus = false, quizData = [], activeRowForUpload = null;
         let checkinZones = [], cachedHomeworkConfig = [], cachedHomeworkSubmissions = [], hwHistoryData = [];
+        let uploadedUrls = [];
 
         // --- 核心工具 ---
         function parseToTaipeiDate(val) {
@@ -1899,7 +1905,14 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3 items-center">
-                        <input type="number" placeholder="最低字數" class="cfg-min p-3 border rounded-xl text-sm font-bold" value="${cfg.minChars}">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-black text-slate-400">最低字數</label>
+                            <input type="number" placeholder="最低字數" class="cfg-min p-3 border rounded-xl text-sm font-bold" value="${cfg.minChars}">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] font-black text-slate-400">允許上傳檔案數 (0 代表隱藏不需上傳)</label>
+                            <input type="number" placeholder="允許檔案數" class="cfg-max-files p-3 border rounded-xl text-sm font-bold" value="${cfg.maxFiles !== undefined ? cfg.maxFiles : 1}">
+                        </div>
                     </div>
                     
                     <div class="q-list-container space-y-4 pt-2">
@@ -1960,7 +1973,14 @@
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 items-center">
-                    <input type="number" placeholder="最低字數" class="cfg-min p-3 border rounded-xl text-sm font-bold" value="200">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-black text-slate-400">最低字數</label>
+                        <input type="number" placeholder="最低字數" class="cfg-min p-3 border rounded-xl text-sm font-bold" value="200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] font-black text-slate-400">允許上傳檔案數 (0 代表隱藏不需上傳)</label>
+                        <input type="number" placeholder="允許檔案數" class="cfg-max-files p-3 border rounded-xl text-sm font-bold" value="1">
+                    </div>
                 </div>
                 <div class="q-list-container space-y-4 pt-2">
                     <label class="text-[10px] text-indigo-400 font-black uppercase">問題列表</label>
@@ -1998,7 +2018,9 @@
                     }
                 });
                 const showRef = row.querySelector('.cfg-show-reflection').checked;
-                if (topic) data.push({ topic, minChars: min, questions: questions, showReflection: showRef });
+                const maxFilesVal = row.querySelector('.cfg-max-files');
+                const maxFiles = maxFilesVal !== null ? (parseInt(maxFilesVal.value) ?? 1) : 1;
+                if (topic) data.push({ topic, minChars: min, questions: questions, showReflection: showRef, maxFiles: maxFiles });
             });
 
             btn.disabled = true;
@@ -2038,6 +2060,21 @@
             if (cfg) {
                 hint.innerText = cfg.showReflection ? `(最少需寫 ${cfg.minChars} 字)` : "";
                 document.getElementById('homework-reflection-area').style.display = cfg.showReflection ? 'block' : 'none';
+
+                // 動態處理檔案上傳設定
+                const maxFiles = cfg.maxFiles !== undefined ? parseInt(cfg.maxFiles) : 1;
+                const uploadArea = document.getElementById('homework-file-upload-area');
+                if (uploadArea) {
+                    if (maxFiles <= 0) {
+                        uploadArea.style.display = 'none';
+                        uploadedUrls = [];
+                        document.getElementById('homework-url').value = '';
+                    } else {
+                        uploadArea.style.display = 'block';
+                        uploadedUrls = [];
+                        renderUploadedFiles(maxFiles);
+                    }
+                }
 
                 const questions = cfg.questions || [];
 
@@ -2082,6 +2119,13 @@
             } else {
                 hint.innerText = "";
                 dynamicContainer.classList.add('hidden');
+                
+                // 預設隱藏上傳區塊
+                const uploadArea = document.getElementById('homework-file-upload-area');
+                if (uploadArea) uploadArea.style.display = 'none';
+                uploadedUrls = [];
+                const hiddenInput = document.getElementById('homework-url');
+                if (hiddenInput) hiddenInput.value = '';
             }
             updateCharCount();
         }
@@ -2125,9 +2169,12 @@
                     });
                     const result = await res.json();
                     if (result.success) {
-                        document.getElementById('homework-url').value = result.url;
-                        updateUrlPreview();
-                        toast('檔案上傳成功！網址已填入。');
+                        const topic = document.getElementById('homework-topic').value;
+                        const cfg = cachedHomeworkConfig.find(c => c.topic === topic);
+                        const maxFiles = cfg && cfg.maxFiles !== undefined ? parseInt(cfg.maxFiles) : 1;
+                        uploadedUrls.push(result.url);
+                        renderUploadedFiles(maxFiles);
+                        toast('檔案上傳成功！');
                     } else {
                         toast(result.error || '上傳失敗', true);
                     }
@@ -2139,6 +2186,79 @@
                 }
             };
             reader.readAsDataURL(file);
+        }
+
+        function addUrlFromInput() {
+            const input = document.getElementById('homework-url-input');
+            const url = input.value.trim();
+            if (!url) return toast('請輸入網址', true);
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                return toast('請輸入有效的網址 (需包含 http:// 或 https://)', true);
+            }
+            const topic = document.getElementById('homework-topic').value;
+            const cfg = cachedHomeworkConfig.find(c => c.topic === topic);
+            const maxFiles = cfg && cfg.maxFiles !== undefined ? parseInt(cfg.maxFiles) : 1;
+            
+            if (uploadedUrls.length >= maxFiles) {
+                return toast(`最多只能上傳/新增 ${maxFiles} 個連結`, true);
+            }
+            uploadedUrls.push(url);
+            input.value = '';
+            renderUploadedFiles(maxFiles);
+        }
+
+        function renderUploadedFiles(maxFiles) {
+            const listContainer = document.getElementById('homework-uploaded-files-list');
+            const hiddenInput = document.getElementById('homework-url');
+            const uploadBtn = document.getElementById('homework-upload-btn');
+            const inputContainer = document.getElementById('homework-url-input-container');
+            
+            if (!listContainer || !hiddenInput || !uploadBtn || !inputContainer) return;
+            
+            // 更新隱藏的 input value，以逗號隔開
+            hiddenInput.value = uploadedUrls.join(', ');
+            
+            // 控制按鈕與輸入框的顯示
+            if (uploadedUrls.length >= maxFiles) {
+                uploadBtn.style.display = 'none';
+                inputContainer.style.display = 'none';
+            } else {
+                uploadBtn.style.display = 'flex';
+                inputContainer.style.display = 'flex';
+            }
+            
+            // 渲染列表
+            listContainer.innerHTML = uploadedUrls.map((url, idx) => {
+                let displayName = url;
+                try {
+                    const parsed = new URL(url);
+                    // 取得網址路徑最後一部分
+                    displayName = decodeURIComponent(parsed.pathname.split('/').pop()) || parsed.hostname;
+                } catch(e) {}
+                if (displayName.length > 30) {
+                    displayName = displayName.substring(0, 15) + '...' + displayName.substring(displayName.length - 10);
+                }
+                
+                return `
+                    <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <a href="${url}" target="_blank" class="text-xs text-indigo-600 font-bold underline truncate flex-1 hover:text-indigo-800">
+                            📄 ${displayName}
+                        </a>
+                        <button onclick="removeUploadedFile(${idx}, ${maxFiles})" class="text-rose-400 p-1 text-xs hover:text-rose-600 ml-2">✕ 刪除</button>
+                    </div>
+                `;
+            }).join('');
+            
+            // 更新 label
+            const label = document.getElementById('homework-file-label');
+            if (label) {
+                label.innerText = `參考網址 / 雲端連結 (已上傳 ${uploadedUrls.length}/${maxFiles})`;
+            }
+        }
+
+        function removeUploadedFile(idx, maxFiles) {
+            uploadedUrls.splice(idx, 1);
+            renderUploadedFiles(maxFiles);
         }
 
         async function handleHomeworkSubmit() {
